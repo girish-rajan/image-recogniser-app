@@ -1,26 +1,172 @@
-import React from 'react';
-import logo from './logo.svg';
+import React, { Component } from 'react';
 import './App.css';
+import Signin from './components/Signin/Signin';
+import Register from './components/Register/Register';
+import Navigation from './components/Navigation/Navigation';
+import Logo from './components/Logo/Logo';
+import Rank from './components/Rank/Rank';
+import ImageLinkForm from './components/ImageLinkForm/ImageLinkForm';
+import Particles from 'react-particles-js';
+import FaceRecognition from './components/FaceRecognition/FaceRecognition';
+// import Clarifai from 'clarifai';
 
-function App() {
-  return (
+
+//const Clarifai = require('clarifai');
+// const app = new Clarifai.App({
+//     apiKey: '14d636d4e89d44a79015bf6ebc8bf1c0'
+//    });
+
+   
+   
+const paramList={
+  particles: {
+    number: {
+      value: 100,
+      density: {
+        enable: true,
+        value_area: 800
+      }
+    }}
+};
+
+const initialState = {input: '',
+imageurl: '',
+box:{},
+route: 'signin',
+isSignedIn: false,
+user:{
+  id:'',
+  name: '',
+  email: '',
+  password: '',
+  entries:0,
+  joined: ''
+}};
+
+class App extends Component{
+  constructor()
+  {
+    super();
+
+    this.state=initialState;
+  }
+
+    componentDidMount(){
+      // fetch('http://localhost:3000')
+      // .then(response=>response.json())
+      // .then(console.log)
+
+    }
+    
+    loadUser=(data)=>{
+      this.setState({
+        user:{
+          id:data.user_id,
+          name: data.name,
+          email: data.email,
+          password: data.password,
+          entries:data.entries,
+          joined: data.joined
+        }
+      })
+
+    }
+    calculateFaceLocation=(data)=>{
+      const face = data.outputs[0].data.regions[0].region_info.bounding_box;
+      const image=document.getElementById('inputImage');
+      const width=Number(image.width);
+      
+      const height=Number(image.height);
+      console.log(width, height, face.left_col , face.top_row, face.right_col, face.bottom_row);
+      console.log(face.left_col * width, face.top_row * height, width - (face.right_col * width) , height - (face.bottom_row * height));
+
+      return {
+          leftCol: face.left_col * width,
+         topRow:  face.top_row * height,
+         rightCol: width - (face.right_col * width),
+         bottomRow: height - (face.bottom_row * height)
+
+        
+      }
+    }
+
+    displayFaceBox=(box)=>{
+      this.setState({box:box})
+    }
+    onInputChange=(event)=>{
+      this.setState({input: event.target.value});
+      console.log('Value is ' + event.target.value);
+    }
+    
+    onRouteChange=(route)=>{
+      if (route==='signout'){
+        this.setState(initialState)  ;
+      }
+      else if (route==='home'){
+        this.setState({isSignedIn:true})  ;
+      }
+      this.setState({route:route});
+    }
+
+    onButtonClick=()=>{
+      this.setState({imageurl: this.state.input}); //'https://samples.clarifai.com/face-det.jpg'})
+      console.log('Id : ' + this.state.user.id);
+
+     // app.models.predict(Clarifai.FACE_DETECT_MODEL, this.state.input)
+     fetch('https://frozen-cove-77265.herokuapp.com/image', {
+      method: 'post',
+      headers:{'Content-Type': 'application/json'},
+      body: JSON.stringify
+        ({
+          input: this.state.input
+        })
+    }).then(response=>response.json())
+    .then
+      (response =>{
+        if (response){
+          fetch('https://frozen-cove-77265.herokuapp.com/image', {
+            method: 'put',
+            headers:{'Content-Type': 'application/json'},
+            body: JSON.stringify
+              ({
+                id: this.state.user.id
+              })
+          }).then(response=>response.json())
+          .then (count=>{
+              this.setState(Object.assign(this.state.user, {entries: count}));
+          })
+        }
+        console.log(response);
+          this.displayFaceBox(this.calculateFaceLocation(response))
+        }        
+      ).catch(err=>console.log(err));
+      console.log('gg32 ');
+    }
+
+    render () 
+  { 
+    const { box, route, isSignedIn, imageurl } = this.state;
+    return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <Particles className='ParticleClass' params={paramList}/>
+      <Navigation isSignedIn={isSignedIn} onRouteChange={this.onRouteChange}/>
+      {
+        route==='home'
+        ?<div>
+          <Logo/>
+          <Rank name={this.state.user.name} entries={this.state.user.entries}/>
+          <ImageLinkForm onInputChange = {this.onInputChange} onButtonClick={this.onButtonClick}/>
+          <FaceRecognition  box={box} imageurl={imageurl}/>
+       </div>
+       :(
+        route==='signin'
+        ? <Signin loadUser={this.loadUser} onRouteChange={this.onRouteChange} />
+        : <Register loadUser={this.loadUser} onRouteChange={this.onRouteChange}/>
+       )
+      }
     </div>
-  );
+      
+  );}
 }
 
 export default App;
